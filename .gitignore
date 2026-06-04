@@ -1,0 +1,43 @@
+# 依赖
+node_modules/
+
+# 构建输出
+dist/
+dist-electron/
+
+# 打包输出
+release/
+*.zip
+
+# 缓存
+.cache/
+*.cache
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+npm-debug.log*
+
+# 测试
+.playwright-mcp/
+
+# 临时文件
+*.tmp
+*.temp
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 电子构建缓存
+C:/Users/*/AppData/Local/electron-builder/

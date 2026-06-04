@@ -1,0 +1,61 @@
+appId: com.pdf-tool.app
+productName: PDF全能箱
+directories:
+  output: release/${version}
+  buildResources: build
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - electron/portable-python/**/*
+
+# Windows配置
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+# NSIS安装包配置
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: PDF全能箱
+  licenseAgreement: LICENSE.txt
+  include: build/installer.nsh
+
+# 便携版配置
+portable:
+  artifactName: ${productName}-${version}-Portable.exe
+
+# 发布配置
+publish:
+  provider: generic
+  url: https://releases.example.com/pdf-tool
+
+# 构建前钩子
+beforeBuild: null
+
+# 构建后钩子
+afterAllArtifactBuild: null
+
+# 额外资源
+extraResources:
+  - from: electron/portable-python
+    to: portable-python
+    filter:
+      - "**/*"
+
+# 元数据
+metadata:
+  main: ./dist-electron/main.js
