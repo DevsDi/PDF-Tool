@@ -1,265 +1,183 @@
-# 构建说明
+# PDF全能箱 - 打包发布指南
+
+## 环境要求
+
+- Node.js 18+
+- Python 3.10+（目标机器也需安装）
+- Python 依赖：`pip install PyMuPDF pdf2docx pdfplumber pandas openpyxl`
 
 ## 快速构建
 
 ```bash
-# 开发模式
-npm run dev
-
-# 构建
-npx vite build
-
-# 手动打包（推荐）
-# 见下方详细流程
+npm run dev      # 开发调试
+npx vite build   # 构建前端 + Electron 主进程
 ```
 
----
+## 打包步骤
 
-## 构建流程详解
-
-### 1. 开发模式
-
-```bash
-cd "D:/workspace/PDF Tool"
-node node_modules/vite/bin/vite.js
-```
-
-启动内容：
-- Vite开发服务器 (http://localhost:5173)
-- Electron应用窗口
-- 热更新支持
-
-### 2. 生产构建
+### 1. 构建
 
 ```bash
 npx vite build
 ```
 
-输出目录：
-- `dist/` - 前端构建文件
-- `dist-electron/` - Electron主进程文件
+构建产物：
+- `dist/` — 前端页面（index.html + assets）
+- `dist-electron/main.js` — Electron 主进程
+- `dist-electron/preload.js` — 预加载脚本
+- `dist-electron/portable-python/scripts/` — Python 脚本
 
-### 3. 手动打包
-
-由于electron-builder签名工具需要管理员权限，推荐手动打包：
-
-```bash
-# 步骤1: 构建
-npx vite build
-
-# 步骤2: 创建打包目录
-mkdir -p release/manual
-
-# 步骤3: 复制Electron基础文件
-cp -r node_modules/electron/dist/* release/manual/
-
-# 步骤4: 创建app目录
-mkdir -p release/manual/resources/app
-
-# 步骤5: 复制应用资源
-cp -r dist release/manual/resources/app/
-cp -r dist-electron release/manual/resources/app/
-cp package.json release/manual/resources/app/
-
-# 步骤6: 重命名exe
-mv release/manual/electron.exe "release/manual/PDF全能箱.exe"
-
-# 步骤7: 压缩打包
-cd release
-powershell Compress-Archive -Path "manual/*" -DestinationPath "PDF全能箱-portable.zip"
-```
-
----
-
-## 构建产物
-
-### 文件结构
-
-```
-release/
-├── manual/                     # 解压版目录
-│   ├── PDF全能箱.exe           # 主程序 (176MB)
-│   ├── resources/              # 资源目录
-│   │   └── app/               # 应用文件
-│   │       ├── dist/          # 前端文件
-│   │       ├── dist-electron/ # Electron文件
-│   │       └── package.json
-│   ├── *.dll                   # 依赖库
-│   ├── *.pak                   # 资源包
-│   └── locales/               # 语言包
-│
-└── PDF全能箱-portable.zip      # 便携版 (~103MB)
-```
-
-### 文件大小
-
-| 组件 | 大小 |
-|------|------|
-| Electron基础 | ~85MB |
-| 应用资源 | ~3MB |
-| 依赖库 | ~15MB |
-| 总计（解压） | ~200MB |
-| 压缩后 | ~103MB |
-
----
-
-## 环境配置
-
-### Node.js版本
-
-推荐使用 Node.js 18.x 或更高版本：
+### 2. 生成 Electron 运行时（仅首次）
 
 ```bash
-# 检查版本
-node -v
-npm -v
+npx electron-builder --win --x64 --dir
 ```
 
-### 依赖安装
+生成 `release/win-unpacked/` 目录，包含 Electron 二进制文件和 Chromium 运行时。
+
+> 如果遇到 winCodeSign 符号链接错误，可忽略。只要 `release/win-unpacked/` 目录生成即可。
+
+### 3. 组装应用目录
+
+**目录结构（关键！路径必须严格一致）：**
+
+```
+release/win-unpacked/
+├── PDF全能箱.exe                    # Electron 主程序
+├── chrome_*.pak, *.dll, ...         # Chromium 运行时（自动生成，勿动）
+├── locales/                         # 语言包
+└── resources/
+    └── app/                         # 应用代码（手动组装）
+        ├── package.json             # 入口声明 {"main": "./main.js"}
+        ├── main.js                  # Electron 主进程
+        ├── preload.js               # 预加载脚本
+        ├── dist/                    # 前端页面
+        │   ├── index.html
+        │   └── assets/
+        │       ├── index-*.js
+        │       └── index-*.css
+        └── portable-python/scripts/ # Python 脚本
+            ├── pdf2word.py
+            ├── pdf2excel.py
+            └── pdf-watermark-add.py
+```
+
+**组装命令：**
 
 ```bash
-npm install
+APP="release/win-unpacked/resources/app"
+
+mkdir -p $APP/dist $APP/portable-python/scripts
+
+# 复制 Electron 主进程
+cp dist-electron/main.js $APP/
+cp dist-electron/preload.js $APP/
+
+# 复制前端
+cp -r dist/* $APP/dist/
+
+# 复制 Python 脚本
+cp dist-electron/portable-python/scripts/*.py $APP/portable-python/scripts/
+
+# 创建 package.json（Electron 入口声明）
+echo '{"name":"pdf-tool","version":"1.0.0","main":"./main.js"}' > $APP/package.json
 ```
 
-主要依赖：
-- react: ^18.2.0
-- antd: ^5.12.0
-- electron: ^28.0.0
-- pdf-lib: ^1.17.1
-- vite: ^5.0.0
-- typescript: ^5.3.0
-
-### 镜像配置（可选）
-
-国内用户可配置镜像加速：
+### 4. 打包压缩
 
 ```bash
-# npm镜像
-npm config set registry https://registry.npmmirror.com
+# 推荐：使用 7z（PowerShell 可能被文件锁阻止）
+node_modules/7zip-bin/win/x64/7za.exe a -mx5 PDF-Tool-Portable.7z ./release/win-unpacked/*
 
-# Electron镜像
-npm config set electron_mirror https://npmmirror.com/mirrors/electron/
+# 备选：PowerShell（需确保无进程占用文件）
+Compress-Archive -Path release/win-unpacked/* -DestinationPath PDF-Tool-Portable.zip
 ```
 
----
+## 关键配置说明
 
-## 常见问题
+### main.ts — webSecurity（白屏问题的根源）
 
-### Q: vite build很慢？
+```typescript
+webPreferences: {
+  webSecurity: isDev,  // 开发模式开启，打包后关闭
+  // file:// 协议下 ES Module 需要 webSecurity: false 才能加载
+}
+```
 
-**原因**：首次构建需要编译大量模块
+### main.ts — 路径引用
 
-**解决**：
-- 后续构建会利用缓存，速度提升
-- 使用 `npx vite build` 直接构建
+```typescript
+// __dirname 在 resources/app/ 下
+const indexPath = join(__dirname, 'dist/index.html')  // ✅ 正确
+// const indexPath = join(__dirname, '../dist/index.html')  // ❌ 错误
+```
 
-### Q: electron-builder打包失败？
+### vite.config.ts — 静态文件复制
 
-**原因**：winCodeSign签名工具需要管理员权限
+```typescript
+viteStaticCopy({
+  targets: [{
+    src: 'electron/portable-python/scripts/*.py',
+    dest: '../dist-electron/portable-python/scripts'  // 相对于 dist/，需 ../ 跳出
+  }]
+})
+```
 
-**解决**：使用手动打包流程
+### electron-builder.yml
 
-### Q: 打包后exe空白？
+```yaml
+files:
+  - dist/**/*
+  - dist-electron/main.js
+  - dist-electron/preload.js
+  - dist-electron/portable-python/**/*
+```
 
-**原因**：
-1. 路由配置错误（需要HashRouter）
-2. preload路径错误
-3. index.html路径错误
+## 已知问题与解决方案
 
-**解决**：参考DEVELOPER_GUIDE.md排查
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| 白屏 | `file://` 下 ES Module 被 CORS 阻止 | `webSecurity: false`（仅打包后） |
+| 白屏 | `dist/index.html` 路径错误 | `join(__dirname, 'dist/index.html')` 而非 `../dist/` |
+| Python 脚本找不到 | vite-static-copy dest 配置错误 | dest 相对于 `dist/`，用 `../dist-electron/` |
+| winCodeSign 解压失败 | macOS 符号链接在 Windows 无法创建 | 忽略，`--dir` 模式不需要签名 |
+| zip 打包失败 | 文件被 Electron 进程占用 | 先关闭 Electron，或用 7za 代替 PowerShell |
+| 水印添加失败 bad fontname | PyMuPDF fontname 不允许空格 | 用 `fontname="china-s"` + `fontfile=字体路径` |
+| 水印文字没写入 | insert_textbox 返回负值（矩形太小） | 增大矩形尺寸，检查返回值 |
 
-### Q: 如何减少打包体积？
+## 分发说明
 
-**方法**：
-- 移除locales中不需要的语言包
-- 压缩资源文件
-- 使用asar压缩（需额外配置）
-
----
-
-## 打包检查清单
-
-构建前检查：
-
-- [ ] 代码无错误
-- [ ] 功能测试通过
-- [ ] 版本号已更新
-- [ ] CHANGELOG已更新
-- [ ] README已更新
-
-打包后检查：
-
-- [ ] exe可以正常启动
-- [ ] 路由导航正常
-- [ ] 功能可以使用
-- [ ] 无控制台错误
-- [ ] 文件大小合理
-
----
+用户需知：
+1. 解压到任意目录
+2. 双击 `PDF全能箱.exe` 运行
+3. 需预装 Python 3 + 依赖库（PyMuPDF、pdf2docx、pdfplumber）
+4. Python 脚本功能（加水印、转Word、转Excel）依赖 Python 环境
+5. Node.js 原生功能（合并、拆分、压缩、排序）无需额外依赖
 
 ## 一键打包脚本
 
-创建 `scripts/build.bat`：
-
 ```batch
 @echo off
-echo === PDF全能箱构建脚本 ===
+echo === PDF全能箱打包脚本 ===
 
-echo [1/5] 清理旧文件
-rm -rf release/manual
-rm -rf release/PDF全能箱-portable.zip
-
-echo [2/5] 构建
+echo [1/4] 构建
 call npx vite build
 
-echo [3/5] 复制Electron
-mkdir -p release/manual
-xcopy /E /I node_modules\electron\dist release\manual
+echo [2/4] 组装应用
+set APP=release\win-unpacked\resources\app
+mkdir -p %APP%\dist %APP%\portable-python\scripts
+copy dist-electron\main.js %APP%\
+copy dist-electron\preload.js %APP%\
+xcopy /E /Y dist %APP%\dist\
+copy dist-electron\portable-python\scripts\*.py %APP%\portable-python\scripts\
+echo {"name":"pdf-tool","version":"1.0.0","main":"./main.js"} > %APP%\package.json
 
-echo [4/5] 复制应用资源
-mkdir -p release\manual\resources\app
-xcopy /E /I dist release\manual\resources\app\dist
-xcopy /E /I dist-electron release\manual\resources\app\dist-electron
-copy package.json release\manual\resources\app\
+echo [3/4] 测试运行
+start release\win-unpacked\PDF全能箱.exe
+echo 请确认界面正常后关闭窗口，然后继续...
 
-echo [5/5] 重命名和压缩
-ren release\manual\electron.exe PDF全能箱.exe
-powershell Compress-Archive -Path "release\manual\*" -DestinationPath "release\PDF全能箱-portable.zip"
+echo [4/4] 打包压缩
+node_modules\7zip-bin\win\x64\7za.exe a -mx5 PDF-Tool-Portable.7z .\release\win-unpacked\*
 
-echo === 构建完成 ===
-echo 输出: release\PDF全能箱-portable.zip
+echo === 打包完成 ===
 ```
-
----
-
-## 发布流程
-
-1. **构建测试**
-   ```bash
-   npm run dev
-   # 测试所有功能
-   ```
-
-2. **生产构建**
-   ```bash
-   npx vite build
-   ```
-
-3. **手动打包**
-   ```bash
-   # 执行打包步骤
-   ```
-
-4. **测试打包**
-   - 解压zip
-   - 运行exe
-   - 测试功能
-
-5. **发布**
-   - 上传到发布平台
-   - 更新文档
-   - 发布通知
-
----
-
-© 2024 PDF Tool Team

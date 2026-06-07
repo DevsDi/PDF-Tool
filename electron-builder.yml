@@ -6,12 +6,16 @@ directories:
 
 files:
   - dist/**/*
-  - dist-electron/**/*
-  - electron/portable-python/**/*
+  - dist-electron/main.js
+  - dist-electron/preload.js
+  - dist-electron/portable-python/**/*
 
 # Windows配置
 win:
   icon: build/icon.ico
+  sign: null
+  signingHashAlgorithms:
+    - sha256
   target:
     - target: nsis
       arch:

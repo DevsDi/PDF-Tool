@@ -48,6 +48,7 @@ async function createWindow(): Promise<void> {
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
+      webSecurity: isDev,  // Disable webSecurity for packaged app (file:// needs it for ES modules)
     },
   })
 
@@ -66,7 +67,7 @@ async function createWindow(): Promise<void> {
       }
     }
   } else {
-    const indexPath = join(__dirname, '../dist/index.html')
+    const indexPath = join(__dirname, 'dist/index.html')
     mainWindow.loadFile(indexPath)
   }
 }
