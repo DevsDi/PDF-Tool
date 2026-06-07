@@ -6,9 +6,8 @@ import {
   ScissorOutlined,
   FileWordOutlined,
   CompressOutlined,
-  StopOutlined,
-  LockOutlined,
-  UnlockOutlined,
+  HighlightOutlined,
+  OrderedListOutlined,
 } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 
@@ -30,9 +29,14 @@ const menuItems: MenuProps['items'] = [
     label: 'PDF拆分',
   },
   {
+    key: '/reorder',
+    icon: <OrderedListOutlined />,
+    label: '页面排序',
+  },
+  {
     key: '/convert',
     icon: <FileWordOutlined />,
-    label: '转Word',
+    label: '格式转换',
   },
   {
     key: '/compress',
@@ -40,19 +44,9 @@ const menuItems: MenuProps['items'] = [
     label: 'PDF压缩',
   },
   {
-    key: '/watermark',
-    icon: <StopOutlined />,
-    label: '去水印',
-  },
-  {
-    key: '/encrypt',
-    icon: <LockOutlined />,
-    label: 'PDF加密',
-  },
-  {
-    key: '/decrypt',
-    icon: <UnlockOutlined />,
-    label: 'PDF解密',
+    key: '/watermark-add',
+    icon: <HighlightOutlined />,
+    label: '添加水印',
   },
 ]
 
@@ -70,10 +64,17 @@ function Layout({ children }: LayoutProps) {
   const location = useLocation()
 
   /**
-   * 处理菜单点击事件
+   * Handle menu click event
    */
   const handleMenuClick: MenuProps['onClick'] = (e) => {
     navigate(e.key)
+  }
+
+  /**
+   * Get currently selected menu key
+   */
+  const getSelectedKey = () => {
+    return [location.pathname]
   }
 
   return (
@@ -104,7 +105,7 @@ function Layout({ children }: LayoutProps) {
         >
           <Menu
             mode="inline"
-            selectedKeys={[location.pathname]}
+            selectedKeys={getSelectedKey()}
             items={menuItems}
             onClick={handleMenuClick}
             style={{ borderRight: 0 }}

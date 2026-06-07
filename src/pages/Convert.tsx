@@ -1,16 +1,22 @@
 import { useState } from 'react'
-import { Button, Card, message, Progress, Space, Typography, Alert } from 'antd'
+import { Button, Card, message, Progress, Space, Typography, Alert, Radio } from 'antd'
 import {
   FileWordOutlined,
-  DownloadOutlined,
+  FileExcelOutlined,
   FilePdfOutlined,
 } from '@ant-design/icons'
+import DragUpload from '../components/DragUpload'
 
 const { Title, Text } = Typography
 
 /**
- * PDF转Word页面
- * 将PDF文件转换为Word文档
+ * 转换格式类型
+ */
+type ConvertFormat = 'word' | 'excel'
+
+/**
+ * PDF转换页面
+ * 支持转换为Word、Excel、PPT
  */
 function Convert() {
   const [filePath, setFilePath] = useState('')
@@ -18,28 +24,41 @@ function Convert() {
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [outputPath, setOutputPath] = useState('')
+  const [format, setFormat] = useState<ConvertFormat>('word')
 
   /**
-   * 选择PDF文件
+   * 处理选中的文件
    */
-  const handleSelectFile = async () => {
-    if (window.electronAPI) {
-      const result = await window.electronAPI.openFile({ multiSelections: false })
-      if (!result.canceled && result.filePaths.length > 0) {
-        const path = result.filePaths[0]
-        setFilePath(path)
+  const handleFilesSelected = async (selectedFiles: string[]) => {
+    const path = selectedFiles[0]
+    setFilePath(path)
 
-        // 获取文件信息
-        const info = await window.electronAPI.getFileInfo(path)
-        if (info.success) {
-          setFileInfo(info.data)
-        }
+    // 获取文件信息
+    const info = await window.electronAPI!.getFileInfo(path)
+    if (info.success) {
+      setFileInfo(info.data)
+      // 自动设置输出路径
+      updateOutputPath(path, info.data.name, format)
+    }
+  }
 
-        // 清空输出
-        setOutputPath('')
-      }
-    } else {
-      message.warning('请在Electron应用中使用此功能')
+  /**
+   * 更新输出路径
+   */
+  const updateOutputPath = (path: string, name: string, targetFormat: ConvertFormat) => {
+    const dir = path.substring(0, path.lastIndexOf('\\') || path.lastIndexOf('/'))
+    const baseName = name.replace('.pdf', '')
+    const ext = targetFormat === 'word' ? '.docx' : '.xlsx'
+    setOutputPath(dir + '\\' + baseName + ext)
+  }
+
+  /**
+   * 格式变化时更新输出路径
+   */
+  const handleFormatChange = (newFormat: ConvertFormat) => {
+    setFormat(newFormat)
+    if (fileInfo) {
+      updateOutputPath(filePath, fileInfo.name, newFormat)
     }
   }
 
@@ -47,10 +66,13 @@ function Convert() {
    * 选择输出路径
    */
   const handleSelectOutput = async () => {
+    const ext = format === 'word' ? 'docx' : format === 'excel' ? 'xlsx' : 'pptx'
+    const filterName = format === 'word' ? 'Word文件' : format === 'excel' ? 'Excel文件' : 'PPT文件'
+
     if (window.electronAPI) {
       const result = await window.electronAPI.saveFile({
-        defaultPath: fileInfo?.name?.replace('.pdf', '.docx') || 'converted.docx',
-        filters: [{ name: 'Word文件', extensions: ['docx'] }]
+        defaultPath: fileInfo?.name?.replace('.pdf', '.' + ext) || 'converted.' + ext,
+        filters: [{ name: filterName, extensions: [ext] }]
       })
       if (!result.canceled && result.filePath) {
         setOutputPath(result.filePath)
@@ -59,7 +81,7 @@ function Convert() {
   }
 
   /**
-   * 处理PDF转Word
+   * 处理转换
    */
   const handleConvert = async () => {
     if (!filePath) {
@@ -79,8 +101,13 @@ function Convert() {
       // 监听进度更新
       window.electronAPI?.onProgress((p) => setProgress(p))
 
-      // 调用转换服务
-      const result = await window.electronAPI?.convertPDF(filePath, outputPath)
+      let result
+
+      if (format === 'word') {
+        result = await window.electronAPI?.convertPDF(filePath, outputPath)
+      } else if (format === 'excel') {
+        result = await window.electronAPI?.convertToExcel(filePath, outputPath)
+      }
 
       if (result?.success) {
         message.success('转换成功！')
@@ -105,41 +132,52 @@ function Convert() {
     return `${(bytes / 1024 / 1024).toFixed(2)} MB`
   }
 
+  /**
+   * 格式选项
+   */
+  const formatOptions = [
+    { value: 'word', label: 'Word (.docx)', icon: <FileWordOutlined /> },
+    { value: 'excel', label: 'Excel (.xlsx)', icon: <FileExcelOutlined /> },
+  ]
+
+  /**
+   * 格式说明
+   */
+  const formatDescriptions: Record<ConvertFormat, string> = {
+    word: '转换为可编辑的Word文档，保留原文档的格式、表格、图片等',
+    excel: '提取PDF中的表格数据并转换为Excel表格',
+  }
+
   return (
     <Card>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         {/* 页面标题 */}
         <div style={{ textAlign: 'center' }}>
           <FileWordOutlined style={{ fontSize: 48, color: '#1677ff' }} />
-          <Title level={3} style={{ marginTop: 16 }}>PDF转Word</Title>
-          <Text type="secondary">将PDF文件转换为可编辑的Word文档</Text>
+          <Title level={3} style={{ marginTop: 16 }}>PDF转换</Title>
+          <Text type="secondary">将PDF文件转换为Word、Excel、PPT格式</Text>
         </div>
-
-        {/* 功能说明 */}
-        <Alert
-          type="info"
-          showIcon
-          message="转换说明"
-          description="本功能使用pdf2docx库进行转换，会尽力保留原文档的格式、表格、图片等内容。转换效果取决于PDF的复杂程度。转换过程可能需要几分钟，请耐心等待。"
-        />
 
         {/* 文件选择区域 */}
-        <div style={{ textAlign: 'center' }}>
-          <Button type="primary" size="large" onClick={handleSelectFile}>
-            选择PDF文件
-          </Button>
-        </div>
+        {!fileInfo ? (
+          <DragUpload
+            onFilesSelected={handleFilesSelected}
+            multiSelections={false}
+          />
+        ) : null}
 
         {/* 文件信息 */}
         {fileInfo && (
           <Card size="small">
-            <Space>
-              <FilePdfOutlined style={{ color: '#1677ff', fontSize: 24 }} />
-              <div>
-                <Text strong>{fileInfo.name}</Text>
-                <br />
-                <Text type="secondary">大小：{formatSize(fileInfo.size)}</Text>
-              </div>
+            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+              <Space>
+                <FilePdfOutlined style={{ color: '#1677ff', fontSize: 24 }} />
+                <div>
+                  <Text strong>{fileInfo.name}</Text>
+                  <br />
+                  <Text type="secondary">大小：{formatSize(fileInfo.size)}</Text>
+                </div>
+              </Space>
               <Button
                 type="text"
                 onClick={() => {
@@ -150,6 +188,36 @@ function Convert() {
               >
                 重新选择
               </Button>
+            </Space>
+          </Card>
+        )}
+
+        {/* 格式选择 */}
+        {fileInfo && (
+          <Card title="选择转换格式">
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <Radio.Group
+                value={format}
+                onChange={(e) => handleFormatChange(e.target.value)}
+                optionType="button"
+                buttonStyle="solid"
+                size="large"
+              >
+                {formatOptions.map(opt => (
+                  <Radio.Button key={opt.value} value={opt.value}>
+                    <Space>
+                      {opt.icon}
+                      {opt.label}
+                    </Space>
+                  </Radio.Button>
+                ))}
+              </Radio.Group>
+
+              <Alert
+                type="info"
+                showIcon
+                message={formatDescriptions[format]}
+              />
             </Space>
           </Card>
         )}
@@ -181,7 +249,7 @@ function Convert() {
             <Button
               type="primary"
               size="large"
-              icon={<FileWordOutlined />}
+              icon={format === 'word' ? <FileWordOutlined /> : <FileExcelOutlined />}
               loading={loading}
               disabled={!fileInfo || !outputPath}
               onClick={handleConvert}

@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { Button, Card, message, Progress, Space, Typography, List } from 'antd'
 import {
   MergeCellsOutlined,
-  DownloadOutlined,
   ArrowDownOutlined,
   DragOutlined,
   FilePdfOutlined,
   DeleteOutlined,
+  PlusOutlined,
 } from '@ant-design/icons'
+import DragUpload from '../components/DragUpload'
 
 const { Title, Text } = Typography
 
@@ -24,23 +25,37 @@ function Merge() {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
 
   /**
-   * 选择PDF文件
+   * 处理选中的文件（来自DragUpload或按钮）
+   */
+  const handleFilesSelected = async (selectedFiles: string[]) => {
+    const newFiles = [...files, ...selectedFiles]
+    setFiles(newFiles)
+
+    // 获取文件信息
+    const infos = await Promise.all(
+      selectedFiles.map(async (filePath) => {
+        const info = await window.electronAPI!.getFileInfo(filePath)
+        return info.success ? info.data : { name: filePath, size: 0, path: filePath }
+      })
+    )
+    setFileInfos([...fileInfos, ...infos])
+
+    // 自动设置输出路径为第一个文件所在目录
+    if (files.length === 0 && selectedFiles.length > 0) {
+      const firstPath = selectedFiles[0]
+      const dir = firstPath.substring(0, firstPath.lastIndexOf('\\') || firstPath.lastIndexOf('/'))
+      setOutputPath(dir + '\\merged.pdf')
+    }
+  }
+
+  /**
+   * 选择PDF文件（添加更多）
    */
   const handleSelectFiles = async () => {
     if (window.electronAPI) {
       const result = await window.electronAPI.openFile({ multiSelections: true })
       if (!result.canceled && result.filePaths.length > 0) {
-        const newFiles = [...files, ...result.filePaths]
-        setFiles(newFiles)
-
-        // 获取文件信息
-        const infos = await Promise.all(
-          result.filePaths.map(async (path) => {
-            const info = await window.electronAPI.getFileInfo(path)
-            return info.success ? info.data : { name: path, size: 0, path }
-          })
-        )
-        setFileInfos([...fileInfos, ...infos])
+        handleFilesSelected(result.filePaths)
       }
     } else {
       message.warning('请在Electron应用中使用此功能')
@@ -189,11 +204,19 @@ function Merge() {
         </Card>
 
         {/* 文件选择区域 */}
-        <div style={{ textAlign: 'center' }}>
-          <Button type="primary" size="large" onClick={handleSelectFiles}>
-            选择PDF文件
-          </Button>
-        </div>
+        {fileInfos.length === 0 ? (
+          <DragUpload
+            onFilesSelected={handleFilesSelected}
+            multiSelections={true}
+            hint="可同时选择多个文件进行合并"
+          />
+        ) : (
+          <div style={{ textAlign: 'center' }}>
+            <Button icon={<PlusOutlined />} onClick={handleSelectFiles}>
+              添加更多文件
+            </Button>
+          </div>
+        )}
 
         {/* 文件列表 */}
         {fileInfos.length > 0 && (

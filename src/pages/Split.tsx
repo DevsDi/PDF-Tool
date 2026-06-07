@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { Button, Card, message, Progress, Space, Typography, Radio, InputNumber, List } from 'antd'
 import {
   ScissorOutlined,
-  DownloadOutlined,
   FilePdfOutlined,
 } from '@ant-design/icons'
+import DragUpload from '../components/DragUpload'
 
 const { Title, Text } = Typography
 
@@ -27,30 +27,30 @@ function Split() {
   const [pageRange, setPageRange] = useState('1-5, 6-10')
   const [extractPages, setExtractPages] = useState('1, 3, 5-7')
   const [outputFiles, setOutputFiles] = useState<string[]>([])
+  const [outputPath, setOutputPath] = useState('')
 
   /**
-   * 选择PDF文件
+   * 处理选中的文件
    */
-  const handleSelectFile = async () => {
-    if (window.electronAPI) {
-      const result = await window.electronAPI.openFile({ multiSelections: false })
-      if (!result.canceled && result.filePaths.length > 0) {
-        const path = result.filePaths[0]
-        setFilePath(path)
+  const handleFilesSelected = async (selectedFiles: string[]) => {
+    const path = selectedFiles[0]
+    setFilePath(path)
 
-        // 获取文件信息
-        const info = await window.electronAPI.getFileInfo(path)
-        if (info.success) {
-          setFileInfo(info.data)
-        }
-
-        // 清空之前的输出
-        setOutputFiles([])
-      }
-    } else {
-      message.warning('请在Electron应用中使用此功能')
+    // 获取文件信息
+    const info = await window.electronAPI!.getFileInfo(path)
+    if (info.success) {
+      setFileInfo(info.data)
     }
+
+    // 自动设置输出路径为源文件同目录
+    const dir = path.substring(0, path.lastIndexOf('\\') || path.lastIndexOf('/'))
+    setOutputPath(dir)
+
+    // 清空之前的输出
+    setOutputFiles([])
   }
+
+  // 注意：setOutputPath 在上面使用但没有在 state 中定义，需要添加
 
   /**
    * 处理文件拆分
@@ -138,11 +138,12 @@ function Split() {
         </div>
 
         {/* 文件选择区域 */}
-        <div style={{ textAlign: 'center' }}>
-          <Button type="primary" size="large" onClick={handleSelectFile}>
-            选择PDF文件
-          </Button>
-        </div>
+        {!fileInfo ? (
+          <DragUpload
+            onFilesSelected={handleFilesSelected}
+            multiSelections={false}
+          />
+        ) : null}
 
         {/* 文件信息 */}
         {fileInfo && (

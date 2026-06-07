@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
+import { viteStaticCopy } from 'vite-plugin-static-copy'
 import path from 'path'
 
 // https://vitejs.dev/config/
@@ -37,7 +38,17 @@ export default defineConfig({
         }
       }
     ]),
-    renderer()
+    renderer(),
+    // 复制Python脚本到构建目录
+    // 注意：dest 相对于 build.outDir (dist)，所以需要用相对路径指向 dist-electron
+    viteStaticCopy({
+      targets: [
+        {
+          src: 'electron/portable-python/scripts/*.py',
+          dest: '../dist-electron/portable-python/scripts'
+        }
+      ]
+    })
   ],
   resolve: {
     alias: {

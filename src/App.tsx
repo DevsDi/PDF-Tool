@@ -4,9 +4,8 @@ import Merge from './pages/Merge'
 import Split from './pages/Split'
 import Convert from './pages/Convert'
 import Compress from './pages/Compress'
-import Watermark from './pages/Watermark'
-import Encrypt from './pages/Encrypt'
-import Decrypt from './pages/Decrypt'
+import WatermarkAdd from './pages/WatermarkAdd'
+import PageReorder from './pages/PageReorder'
 
 /**
  * 主应用组件
@@ -23,16 +22,14 @@ function App() {
           <Route path="/merge" element={<Merge />} />
           {/* PDF拆分 */}
           <Route path="/split" element={<Split />} />
-          {/* PDF转Word */}
+          {/* PDF转换 */}
           <Route path="/convert" element={<Convert />} />
           {/* PDF压缩 */}
           <Route path="/compress" element={<Compress />} />
-          {/* PDF去水印 */}
-          <Route path="/watermark" element={<Watermark />} />
-          {/* PDF加密 */}
-          <Route path="/encrypt" element={<Encrypt />} />
-          {/* PDF解密 */}
-          <Route path="/decrypt" element={<Decrypt />} />
+          {/* PDF加水印 */}
+          <Route path="/watermark-add" element={<WatermarkAdd />} />
+          {/* 页面排序 */}
+          <Route path="/reorder" element={<PageReorder />} />
         </Routes>
       </Layout>
     </HashRouter>

@@ -3,6 +3,8 @@
  */
 
 interface ElectronAPI {
+  /** 获取拖拽文件的完整路径 */
+  getPathForFile: (file: File) => string
   /** 打开文件选择对话框 */
   openFile: (options?: OpenFileOptions) => Promise<DialogResult>
   /** 保存文件对话框 */
@@ -13,16 +15,22 @@ interface ElectronAPI {
   splitPDF: (filePath: string, options: SplitOptions) => Promise<ProcessResult>
   /** PDF转Word */
   convertPDF: (filePath: string, outputPath: string) => Promise<ProcessResult>
+  /** PDF转Excel */
+  convertToExcel: (filePath: string, outputPath: string) => Promise<ProcessResult>
   /** PDF压缩 */
   compressPDF: (filePath: string, outputPath: string, quality: number) => Promise<ProcessResult>
-  /** PDF去水印 */
-  removeWatermark: (filePath: string, outputPath: string, options: WatermarkOptions) => Promise<ProcessResult>
-  /** PDF加密 */
-  encryptPDF: (filePath: string, outputPath: string, password: string, permissions: Permissions) => Promise<ProcessResult>
-  /** PDF解密 */
-  decryptPDF: (filePath: string, outputPath: string, password: string) => Promise<ProcessResult>
+  /** PDF加水印 */
+  addWatermark: (filePath: string, outputPath: string, options: AddWatermarkOptions) => Promise<ProcessResult>
+  /** PDF页面排序 */
+  reorderPages: (filePath: string, outputPath: string, pageOrder: number[]) => Promise<ProcessResult>
+  /** PDF页面删除 */
+  deletePages: (filePath: string, outputPath: string, pagesToDelete: number[]) => Promise<ProcessResult>
   /** 获取文件信息 */
   getFileInfo: (filePath: string) => Promise<FileInfoResult>
+  /** 获取PDF页数 */
+  getPageCount: (filePath: string) => Promise<ProcessResult>
+  /** 获取PDF页面详细信息 */
+  getPageInfo: (filePath: string) => Promise<ProcessResult>
   /** 监听进度更新 */
   onProgress: (callback: (progress: number) => void) => void
   /** 移除进度监听 */
@@ -84,6 +92,8 @@ interface FileInfo {
   size: number
   /** 文件路径 */
   path: string
+  /** 页数 */
+  pageCount?: number
 }
 
 interface SplitOptions {
@@ -97,31 +107,19 @@ interface SplitOptions {
   pages?: number[]
 }
 
-interface WatermarkOptions {
-  /** 去水印方式 */
-  mode: 'auto' | 'manual'
-  /** 水印区域（手动模式） */
-  regions?: WatermarkRegion[]
-}
-
-interface WatermarkRegion {
-  /** X坐标 */
-  x: number
-  /** Y坐标 */
-  y: number
-  /** 宽度 */
-  width: number
-  /** 高度 */
-  height: number
-}
-
-interface Permissions {
-  /** 允许打印 */
-  allowPrinting?: boolean
-  /** 允许复制文本 */
-  allowCopying?: boolean
-  /** 允许修改 */
-  allowModifying?: boolean
+interface AddWatermarkOptions {
+  /** 水印文字 */
+  text: string
+  /** 字体大小 */
+  fontSize?: number
+  /** 透明度 (0-1) */
+  opacity?: number
+  /** 旋转角度 */
+  rotation?: number
+  /** 水印位置 */
+  position?: 'center' | 'diagonal' | 'tile' | 'bottom' | 'top'
+  /** 水印颜色 (hex格式) */
+  color?: string
 }
 
 declare global {

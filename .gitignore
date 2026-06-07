@@ -40,4 +40,4 @@ npm-debug.log*
 .env.*.local
 
 # 电子构建缓存
-C:/Users/*/AppData/Local/electron-builder/
+C:/Users/*/AppData/Local/electron-builder/tsconfig.node.tsbuildinfo
