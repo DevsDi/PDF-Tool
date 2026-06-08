@@ -27,10 +27,11 @@ function WatermarkAdd() {
   // 水印选项
   const [watermarkText, setWatermarkText] = useState('内部资料')
   const [fontSize, setFontSize] = useState(40)
-  const [opacity, setOpacity] = useState(0.3)
+  const [opacity, setOpacity] = useState(0.15)
   const [rotation, setRotation] = useState(45)
   const [position, setPosition] = useState<WatermarkPosition>('diagonal')
   const [color, setColor] = useState<string>('#808080')
+  const [spacing, setSpacing] = useState(1.0)
 
   /**
    * 处理选中的文件
@@ -99,6 +100,7 @@ function WatermarkAdd() {
         rotation: position === 'diagonal' ? rotation : 0,
         position,
         color,
+        spacing,
       }
 
       // 调用加水印服务
@@ -224,10 +226,10 @@ function WatermarkAdd() {
                 <Slider
                   value={opacity}
                   onChange={setOpacity}
-                  min={0.1}
-                  max={0.9}
-                  step={0.1}
-                  marks={{ 0.1: '淡', 0.3: '中', 0.5: '深', 0.9: '很深' }}
+                  min={0.05}
+                  max={0.5}
+                  step={0.05}
+                  marks={{ 0.05: '淡', 0.15: '中', 0.3: '深', 0.5: '很深' }}
                 />
               </div>
 
@@ -241,6 +243,21 @@ function WatermarkAdd() {
                     min={-90}
                     max={90}
                     marks={{ '-45': '-45°', 0: '0°', 45: '45°' }}
+                  />
+                </div>
+              )}
+
+              {/* 水印间距（平铺模式时有效） */}
+              {(position === 'diagonal' || position === 'tile') && (
+                <div>
+                  <Text strong>水印间距：{spacing.toFixed(1)}x</Text>
+                  <Slider
+                    value={spacing}
+                    onChange={setSpacing}
+                    min={0.5}
+                    max={3.0}
+                    step={0.1}
+                    marks={{ 0.5: '紧密', 1.0: '适中', 2.0: '宽松', 3.0: '很宽' }}
                   />
                 </div>
               )}

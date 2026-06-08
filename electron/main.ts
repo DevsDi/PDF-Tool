@@ -37,9 +37,9 @@ let mainWindow: BrowserWindow | null = null
 async function createWindow(): Promise<void> {
   mainWindow = new BrowserWindow({
     width: 1200,
-    height: 800,
+    height: 960,
     minWidth: 900,
-    minHeight: 600,
+    minHeight: 700,
     show: false,
     autoHideMenuBar: true,
     title: 'PDF全能箱',
@@ -89,15 +89,90 @@ function sendProgress(progress: number): void {
 }
 
 // 打开文件对话框
+let lastOpenedDir = ''
 ipcMain.handle('dialog:openFile', async (_event, options) => {
   const result = await dialog.showOpenDialog(mainWindow!, {
     properties: ['openFile', ...(options?.multiSelections ? ['multiSelections'] : [])],
     filters: [{ name: 'PDF文件', extensions: ['pdf'] }],
+    defaultPath: lastOpenedDir || app.getPath('documents'),
   })
+  // Remember the directory for next time
+  if (!result.canceled && result.filePaths.length > 0) {
+    lastOpenedDir = path.dirname(result.filePaths[0])
+  }
   return result
 })
 
 // 保存文件对话框
+
+// List available Windows drives (e.g., C:, D:, E:)
+ipcMain.handle('fs:listDrives', async () => {
+  try {
+    const drives: string[] = []
+    // Windows drive letters A-Z
+    for (let i = 65; i <= 90; i++) {
+      const letter = String.fromCharCode(i)
+      const driveRoot = `${letter}:\\`
+      try {
+        fs.accessSync(driveRoot, fs.constants.R_OK)
+        drives.push(driveRoot)
+      } catch {
+        // Drive not available, skip
+      }
+    }
+    return { success: true, data: drives }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 列出目录内容（自定义文件浏览器用）
+ipcMain.handle('fs:listDir', async (_event, dirPath: string) => {
+  try {
+    const targetPath = dirPath || app.getPath('documents')
+    const entries = fs.readdirSync(targetPath, { withFileTypes: true })
+
+    const dirs: string[] = []
+    const files: { name: string; path: string; size: number }[] = []
+
+    for (const entry of entries) {
+      // Skip hidden files
+      if (entry.name.startsWith('.')) continue
+
+      if (entry.isDirectory()) {
+        dirs.push(entry.name)
+      } else if (entry.name.toLowerCase().endsWith('.pdf')) {
+        const fullPath = path.join(targetPath, entry.name)
+        try {
+          const stats = fs.statSync(fullPath)
+          files.push({ name: entry.name, path: fullPath, size: stats.size })
+        } catch {
+          // Skip files we can't stat
+        }
+      }
+    }
+
+    // Sort: directories first, then files, both alphabetically
+    dirs.sort((a, b) => a.localeCompare(b, 'zh-CN'))
+    files.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+
+    // Detect drive root: e.g. "C:\" has no parent
+    const isDriveRoot = /^[A-Za-z]:\\?$/.test(targetPath)
+    const parentPath = isDriveRoot ? '' : path.dirname(targetPath)
+
+    return {
+      success: true,
+      data: {
+        currentPath: targetPath,
+        parentPath,
+        dirs,
+        files,
+      },
+    }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
 ipcMain.handle('dialog:saveFile', async (_event, options) => {
   return await dialog.showSaveDialog(mainWindow!, options)
 })

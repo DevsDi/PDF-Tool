@@ -3,8 +3,6 @@
  */
 
 interface ElectronAPI {
-  /** 获取拖拽文件的完整路径 */
-  getPathForFile: (file: File) => string
   /** 打开文件选择对话框 */
   openFile: (options?: OpenFileOptions) => Promise<DialogResult>
   /** 保存文件对话框 */
@@ -31,6 +29,10 @@ interface ElectronAPI {
   getPageCount: (filePath: string) => Promise<ProcessResult>
   /** 获取PDF页面详细信息 */
   getPageInfo: (filePath: string) => Promise<ProcessResult>
+  /** 列出目录内容（自定义文件浏览器） */
+  listDir: (dirPath: string) => Promise<ListDirResult>
+  /** 列出可用盘符（Windows） */
+  listDrives: () => Promise<ListDrivesResult>
   /** 监听进度更新 */
   onProgress: (callback: (progress: number) => void) => void
   /** 移除进度监听 */
@@ -120,6 +122,33 @@ interface AddWatermarkOptions {
   position?: 'center' | 'diagonal' | 'tile' | 'bottom' | 'top'
   /** 水印颜色 (hex格式) */
   color?: string
+}
+
+interface ListDirResult {
+  /** 是否成功 */
+  success: boolean
+  /** 目录内容 */
+  data?: {
+    /** 当前路径 */
+    currentPath: string
+    /** 上级路径（盘符根目录时为空） */
+    parentPath: string
+    /** 子目录列表 */
+    dirs: string[]
+    /** PDF文件列表 */
+    files: { name: string; path: string; size: number }[]
+  }
+  /** 错误信息 */
+  error?: string
+}
+
+interface ListDrivesResult {
+  /** 是否成功 */
+  success: boolean
+  /** 可用盘符列表，如 ["C:\\", "D:\\"] */
+  data?: string[]
+  /** 错误信息 */
+  error?: string
 }
 
 declare global {

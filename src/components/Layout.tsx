@@ -78,7 +78,7 @@ function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <AntLayout style={{ minHeight: '100vh' }}>
+    <AntLayout style={{ height: '100vh', overflow: 'hidden' }}>
       {/* 顶部标题栏 */}
       <Header style={{
         background: '#1677ff',
@@ -91,7 +91,7 @@ function Layout({ children }: LayoutProps) {
         </Title>
       </Header>
 
-      <AntLayout>
+      <AntLayout style={{ flex: 1, overflow: 'hidden' }}>
         {/* 侧边栏导航 */}
         <Sider
           collapsible
@@ -116,7 +116,7 @@ function Layout({ children }: LayoutProps) {
         <Content style={{
           padding: '24px',
           background: '#f5f5f5',
-          minHeight: 'calc(100vh - 64px)'
+          overflow: 'auto',
         }}>
           {children}
         </Content>

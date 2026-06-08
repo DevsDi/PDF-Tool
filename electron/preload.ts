@@ -1,17 +1,13 @@
-import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 
 /**
- * 预加载脚本
- * 为渲染进程提供安全的API接口
+ * Preload script - expose safe APIs to renderer process
  */
+
+console.log('[Preload] Loading preload script...')
 
 // 暴露API到渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
-  /**
-   * 获取拖拽文件的完整路径
-   */
-  getPathForFile: (file: File) => webUtils.getPathForFile(file),
-
   /**
    * 打开文件选择对话框
    */
@@ -51,6 +47,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   addWatermark: (filePath: string, outputPath: string, options: any) =>
     ipcRenderer.invoke('pdf:addWatermark', filePath, outputPath, options),
+
+  /**
+   * 列出目录内容（自定义文件浏览器）
+   */
+  listDir: (dirPath: string) =>
+    ipcRenderer.invoke('fs:listDir', dirPath),
+
+  /**
+   * 列出可用盘符（Windows）
+   */
+  listDrives: () =>
+    ipcRenderer.invoke('fs:listDrives'),
 
   /**
    * 获取文件信息（快速返回基本信息）
@@ -102,3 +110,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('progress')
   },
 })
+
+console.log('[Preload] electronAPI exposed successfully')

@@ -1,32 +1,35 @@
 import { useState, useCallback } from 'react'
-import { Space, Typography, Button, message } from 'antd'
+import { Space, Typography, Button, message, Spin } from 'antd'
 import { FilePdfOutlined, InboxOutlined, FolderOpenOutlined } from '@ant-design/icons'
+import FileBrowser from './FileBrowser'
 
 const { Text } = Typography
 
 /**
- * 拖拽上传组件属性
+ * DragUpload props
  */
 interface DragUploadProps {
-  /** 上传回调 */
+  /** Upload callback */
   onFilesSelected: (files: string[]) => void
-  /** 是否允许多选 */
+  /** Allow multi-select */
   multiSelections?: boolean
-  /** 提示文字 */
+  /** Hint text */
   hint?: string
-  /** 是否禁用 */
+  /** Disabled state */
   disabled?: boolean
 }
 
 /**
- * 文件上传卡片组件
- * 支持拖拽文件和点击选择文件
+ * File upload component
+ * Supports drag-drop (instant) and in-app file browser (no Windows Shell delay)
  */
 function DragUpload({ onFilesSelected, multiSelections = false, hint, disabled = false }: DragUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [browserVisible, setBrowserVisible] = useState(false)
 
   /**
-   * 处理拖拽进入
+   * Handle drag enter
    */
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -35,7 +38,7 @@ function DragUpload({ onFilesSelected, multiSelections = false, hint, disabled =
   }, [disabled])
 
   /**
-   * 处理拖拽离开
+   * Handle drag leave
    */
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -44,7 +47,7 @@ function DragUpload({ onFilesSelected, multiSelections = false, hint, disabled =
   }, [])
 
   /**
-   * 处理拖拽悬停
+   * Handle drag over
    */
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -52,7 +55,7 @@ function DragUpload({ onFilesSelected, multiSelections = false, hint, disabled =
   }, [])
 
   /**
-   * 处理拖拽放置
+   * Handle drop
    */
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()
@@ -69,94 +72,106 @@ function DragUpload({ onFilesSelected, multiSelections = false, hint, disabled =
       return
     }
 
-    // 使用 Electron 的 webUtils 获取完整文件路径
-    if (window.electronAPI?.getPathForFile) {
-      try {
-        const filePaths = pdfFiles.map(file => window.electronAPI.getPathForFile(file))
-        onFilesSelected(filePaths)
-      } catch (error) {
-        // 如果 webUtils 失败，回退到对话框
-        console.error('Failed to get file paths from drag:', error)
-        handleClick()
+    try {
+      // Method 1: File.path property (available in Electron renderer, works in Electron 28)
+      // Method 2: Fallback to file browser
+      let filePaths: string[] = []
+
+      if ((pdfFiles[0] as any).path) {
+        filePaths = pdfFiles.map(file => (file as any).path).filter(Boolean)
       }
-    } else {
-      // 如果没有 getPathForFile，回退到对话框
-      handleClick()
+
+      if (filePaths.length > 0) {
+        onFilesSelected(filePaths)
+      } else {
+        message.info('请使用"点击选择文件"按钮浏览文件')
+        setBrowserVisible(true)
+      }
+    } catch (error) {
+      console.error('Failed to get file paths from drag:', error)
+      message.info('请使用"点击选择文件"按钮浏览文件')
+      setBrowserVisible(true)
     }
   }, [onFilesSelected, disabled])
 
   /**
-   * 点击选择文件
+   * Handle file browser selection
    */
-  const handleClick = useCallback(async () => {
-    if (disabled) return
-
-    if (window.electronAPI) {
-      const result = await window.electronAPI.openFile({ multiSelections })
-      if (!result.canceled && result.filePaths.length > 0) {
-        onFilesSelected(result.filePaths)
-      }
-    }
-  }, [onFilesSelected, multiSelections, disabled])
+  const handleBrowserSelect = useCallback((filePaths: string[]) => {
+    onFilesSelected(filePaths)
+  }, [onFilesSelected])
 
   return (
-    <div
-      style={{
-        textAlign: 'center',
-        padding: '40px 24px',
-        border: disabled ? '2px dashed #d9d9d9' : (isDragging ? '2px solid #1677ff' : '2px dashed #d9d9d9'),
-        background: disabled ? '#f5f5f5' : (isDragging ? '#e6f7ff' : '#fafafa'),
-        borderRadius: 12,
-        transition: 'all 0.2s ease',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      onClick={handleClick}
-    >
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <InboxOutlined
-          style={{
-            fontSize: 56,
-            color: disabled ? '#999' : (isDragging ? '#1677ff' : '#666'),
-            transition: 'color 0.2s ease'
-          }}
-        />
-        <div>
-          <Text
+    <>
+      <div
+        style={{
+          textAlign: 'center',
+          padding: '40px 24px',
+          border: disabled || loading ? '2px dashed #d9d9d9' : (isDragging ? '2px solid #1677ff' : '2px dashed #d9d9d9'),
+          background: disabled || loading ? '#f5f5f5' : (isDragging ? '#e6f7ff' : '#fafafa'),
+          borderRadius: 12,
+          transition: 'all 0.2s ease',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: loading ? 0.7 : 1,
+        }}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          {loading ? <Spin size="large" /> : <InboxOutlined
             style={{
-              fontSize: 16,
-              fontWeight: 500,
-              color: disabled ? '#999' : (isDragging ? '#1677ff' : '#333'),
-              display: 'block',
-              marginBottom: 8
+              fontSize: 56,
+              color: disabled ? '#999' : (isDragging ? '#1677ff' : '#666'),
+              transition: 'color 0.2s ease'
+            }}
+          />}
+          <div>
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: 500,
+                color: disabled ? '#999' : (isDragging ? '#1677ff' : '#333'),
+                display: 'block',
+                marginBottom: 8
+              }}
+            >
+              {loading ? '正在处理...' : (isDragging ? '释放文件' : (disabled ? '处理中...' : '拖拽或点击选择PDF文件'))}
+            </Text>
+            {hint && (
+              <Text type="secondary" style={{ fontSize: 14 }}>
+                {hint}
+              </Text>
+            )}
+          </div>
+          <Button
+            type="primary"
+            size="large"
+            icon={<FolderOpenOutlined />}
+            disabled={disabled || loading}
+            style={{ minWidth: 160 }}
+            onClick={(e) => {
+              e.stopPropagation()
+              setBrowserVisible(true)
             }}
           >
-            {isDragging ? '释放文件' : (disabled ? '处理中...' : '拖拽或点击选择PDF文件')}
-          </Text>
-          {hint && (
-            <Text type="secondary" style={{ fontSize: 14 }}>
-              {hint}
-            </Text>
-          )}
-        </div>
-        <Button
-          type="primary"
-          size="large"
-          icon={<FolderOpenOutlined />}
-          disabled={disabled}
-          style={{ minWidth: 160 }}
-        >
-          点击选择文件
-        </Button>
-        <Space style={{ opacity: 0.7 }}>
-          <FilePdfOutlined style={{ color: '#1677ff', fontSize: 18 }} />
-          <Text type="secondary">支持 .pdf 格式文件</Text>
+            点击选择文件
+          </Button>
+          <Space style={{ opacity: 0.7 }}>
+            <FilePdfOutlined style={{ color: '#1677ff', fontSize: 18 }} />
+            <Text type="secondary">支持 .pdf 格式文件</Text>
+          </Space>
         </Space>
-      </Space>
-    </div>
+      </div>
+
+      <FileBrowser
+        visible={browserVisible}
+        onClose={() => setBrowserVisible(false)}
+        onSelect={handleBrowserSelect}
+        multiSelections={multiSelections}
+      />
+    </>
   )
 }
 
