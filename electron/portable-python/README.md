@@ -70,8 +70,11 @@ portable-python/
 │   ├── docx/           # python-docx
 │   └── ...
 └── scripts/
-    └── pdf2word.py     # 转换脚本
+    ├── pdf2word.py           # PDF转Word脚本
+    ├── pdf2excel.py          # PDF转Excel脚本
+    └── pdf-watermark-add.py  # PDF加水印脚本
 ```
 
 ## 变更记录
+- 2026-06-08: 新增 pdf2excel.py、pdf-watermark-add.py 脚本说明
 - 2024-06-04: 初始创建
